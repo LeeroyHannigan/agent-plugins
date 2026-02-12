@@ -29,6 +29,11 @@ agent-plugins/
 │   ├── workflows/                # CI (build, lint, security, etc.)
 │   ├── ISSUE_TEMPLATE/
 │   └── ...
+├── docs/                         # Role-specific guides
+│   ├── DESIGN_GUIDELINES.md      # Plugin design best practices
+│   ├── DEVELOPMENT_GUIDE.md      # Contributor setup and workflow
+│   ├── MAINTAINERS_GUIDE.md      # Reviewer/maintainer processes
+│   └── TROUBLESHOOTING.md        # Plugin troubleshooting
 ├── plugins/
 │   └── deploy-on-aws/
 │       ├── .claude-plugin/
@@ -129,8 +134,29 @@ Contributors must first add the marketplace before these take effect.
 claude --plugin-dir ./plugins/deploy-on-aws
 ```
 
+## Git Worktree Workflow
+
+ALWAYS use git worktrees for new work. The main worktree stays on its current branch and is never switched. Each piece of work gets its own worktree under `.tmp/`, branching off the current branch. This enables multiple agents to work in parallel without conflicts.
+
+```bash
+# Create a worktree for new work (branches off current branch)
+git worktree add .tmp/<short-name> -b <branch-name>
+
+# Create a worktree for an existing branch
+git worktree add .tmp/<short-name> <branch-name>
+
+# List worktrees
+git worktree list
+
+# Remove a worktree after the branch is merged
+git worktree remove .tmp/<short-name>
+```
+
+All worktrees live under `.tmp/` (already in `.gitignore`).
+
 ## Boundaries
 
+- ALWAYS use `git worktree add .tmp/<name>` for new work. NEVER switch branches in the main worktree.
 - ALWAYS Use mise commands to interact with the codebase. If a command is not available, add it.
 - NEVER add new dependencies without asking first.
 - ALWAYS run a full build when done with a task, this is to ensure all required files are generated before commit.
