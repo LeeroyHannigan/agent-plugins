@@ -31,6 +31,30 @@
         "cdk"
       ],
       "version": "1.0.0"
+    },
+    {
+      "category": "cost-optimization",
+      "description": "Analyze DynamoDB tables for cost optimization: capacity mode, table class, utilization, and unused GSI detection.",
+      "keywords": [
+        "aws",
+        "aws agent skills",
+        "amazon",
+        "dynamodb",
+        "cost-optimization",
+        "capacity",
+        "on-demand",
+        "provisioned",
+        "table-class",
+        "gsi"
+      ],
+      "name": "dynamodb-cost-optimizer",
+      "source": "./plugins/dynamodb-cost-optimizer",
+      "tags": [
+        "aws",
+        "dynamodb",
+        "cost-optimization"
+      ],
+      "version": "1.0.0"
     }
   ]
 }

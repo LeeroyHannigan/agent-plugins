@@ -26,9 +26,10 @@ To maximize the benefits of plugin-assisted development while maintaining securi
 
 ## Plugins
 
-| Plugin            | Description                                                                                      | Status    |
-| ----------------- | ------------------------------------------------------------------------------------------------ | --------- |
-| **deploy-on-aws** | Deploy applications to AWS with architecture recommendations, cost estimates, and IaC deployment | Available |
+| Plugin                      | Description                                                                                                      | Status    |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------- |
+| **deploy-on-aws**           | Deploy applications to AWS with architecture recommendations, cost estimates, and IaC deployment                 | Available |
+| **dynamodb-cost-optimizer** | Analyze DynamoDB tables for cost optimization: capacity mode, table class, utilization, and unused GSI detection | Available |
 
 ## Installation
 
@@ -44,6 +45,7 @@ To maximize the benefits of plugin-assisted development while maintaining securi
 
 ```bash
 /plugin install deploy-on-aws@agent-plugins-for-aws
+/plugin install dynamodb-cost-optimizer@agent-plugins-for-aws
 ```
 
 ### Cursor
@@ -82,6 +84,27 @@ Equips agents with the skills to accelerate AWS deployment - recommending AWS ar
 | **awsknowledge** | AWS documentation, architecture guidance, and best practices |
 | **awspricing**   | Real-time AWS service pricing for cost estimates             |
 | **aws-iac-mcp**  | IaC best practices for CDK/CloudFormation                    |
+
+## dynamodb-cost-optimizer
+
+Analyzes DynamoDB tables for cost optimization opportunities across four dimensions: capacity mode (on-demand vs provisioned), table class (Standard vs Standard-IA), utilization right-sizing, and unused GSI detection.
+
+### Workflow
+
+1. **Discover** - List and describe DynamoDB tables in target region(s)
+2. **Analyze** - Run all four analyzers in parallel with automatic pricing lookup
+3. **Report** - Present savings recommendations in a formatted table
+
+### Agent Skill Triggers
+
+| Agent Skill           | Triggers                                                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **optimize-dynamodb** | "optimize DynamoDB", "DynamoDB cost analysis", "reduce DynamoDB costs", "on-demand vs provisioned", "table class analysis", "find unused GSIs" |
+
+### Prerequisites
+
+- Python 3.9+ with boto3
+- AWS credentials with: `dynamodb:DescribeTable`, `dynamodb:ListTables`, `cloudwatch:GetMetricData`, `pricing:GetProducts`, `ce:GetCostAndUsage`
 
 ## Requirements
 
