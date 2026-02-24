@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cw_batch import batch_get_metrics
-from config import UTILIZATION_THRESHOLD, ON_DEMAND_THRESHOLD, get_client, parse_input, validate_keys
+from config import UTILIZATION_THRESHOLD, ON_DEMAND_THRESHOLD, get_client, get_price_keys, parse_input, validate_keys
 from typing import Any, Dict
 
 # Seconds per month (30.4 days) — converts avg units/sec to monthly request units
@@ -35,6 +35,8 @@ def analyze(data: Dict[str, Any]) -> Dict[str, Any]:
     if billing == 'PAY_PER_REQUEST':
         return {'tableName': table_name, 'billingMode': 'ON_DEMAND',
                 'message': 'Utilization analysis only applies to PROVISIONED tables'}
+
+    pk = get_price_keys(info)
 
     # Build queries for table + all GSIs in one batch
     resources = [{
@@ -84,17 +86,17 @@ def analyze(data: Dict[str, Any]) -> Dict[str, Any]:
 
         if r_util < ON_DEMAND_THRESHOLD and w_util < ON_DEMAND_THRESHOLD:
             rec_type = 'SWITCH_TO_ON_DEMAND'
-            current = (res['provR'] * prices['rcu_hour'] + res['provW'] * prices['wcu_hour']) * HOURS_PER_MONTH
-            od = (avg_r * SECONDS_PER_MONTH * prices.get('on_demand_read', prices.get('read_request', 0))) + \
-                 (avg_w * SECONDS_PER_MONTH * prices.get('on_demand_write', prices.get('write_request', 0)))
+            current = (res['provR'] * prices[pk['rcu']] + res['provW'] * prices[pk['wcu']]) * HOURS_PER_MONTH
+            od = (avg_r * SECONDS_PER_MONTH * prices.get(pk['read_req'], 0)) + \
+                 (avg_w * SECONDS_PER_MONTH * prices.get(pk['write_req'], 0))
             sav = max(0, current - od)
             rec_r, rec_w = None, None
         else:
             rec_type = 'REDUCE_CAPACITY'
             rec_r = max(5, int(max_r * 1.2)) if r_util < threshold else res['provR']
             rec_w = max(5, int(max_w * 1.2)) if w_util < threshold else res['provW']
-            sav = max(0, (res['provR'] - rec_r) * prices['rcu_hour'] * HOURS_PER_MONTH) + \
-                  max(0, (res['provW'] - rec_w) * prices['wcu_hour'] * HOURS_PER_MONTH)
+            sav = max(0, (res['provR'] - rec_r) * prices[pk['rcu']] * HOURS_PER_MONTH) + \
+                  max(0, (res['provW'] - rec_w) * prices[pk['wcu']] * HOURS_PER_MONTH)
 
         results.append({
             'resourceName': res['name'], 'resourceType': res['type'],

@@ -67,6 +67,16 @@ def validate_keys(data: Dict[str, Any], required: List[str]) -> None:
         data['days'] = max(1, min(int(data['days']), MAX_DAYS))
 
 
+def get_price_keys(table_info: Dict[str, Any]) -> Dict[str, str]:
+    """Return pricing dict keys appropriate for the table's class."""
+    tc = table_info.get('TableClassSummary', {}).get('TableClass', 'STANDARD')
+    if tc == 'STANDARD_INFREQUENT_ACCESS':
+        return {'rcu': 'ia_rcu_hour', 'wcu': 'ia_wcu_hour',
+                'read_req': 'ia_read', 'write_req': 'ia_write'}
+    return {'rcu': 'rcu_hour', 'wcu': 'wcu_hour',
+            'read_req': 'read_request', 'write_req': 'write_request'}
+
+
 def fail(message: str) -> NoReturn:
     """Print error JSON and exit."""
     print(json.dumps({'error': message}))

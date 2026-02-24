@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cw_batch import batch_get_metrics
-from config import get_client, parse_input, validate_keys
+from config import get_client, get_price_keys, parse_input, validate_keys
 from typing import Any, Dict
 
 def analyze(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -27,6 +27,7 @@ def analyze(data: Dict[str, Any]) -> Dict[str, Any]:
     gsis = info.get('GlobalSecondaryIndexes', [])
     billing = info.get('BillingModeSummary', {}).get('BillingMode', 'PROVISIONED')
     is_on_demand = billing == 'PAY_PER_REQUEST'
+    pk = get_price_keys(info) if prices else None
 
     if not gsis:
         return {'tableName': table_name, 'hasGSIs': False, 'unusedGSIs': [], 'analysisDays': days}
@@ -54,16 +55,16 @@ def analyze(data: Dict[str, Any]) -> Dict[str, Any]:
             continue
 
         savings = 0.0
-        if prices:
+        if prices and pk:
             if is_on_demand:
                 total_writes = sum(dp['value'] for dp in metrics.get(f'w{i}', []))
-                savings = (total_writes * prices.get('write_request', 0) / days) * 30.4
+                savings = (total_writes * prices.get(pk['write_req'], 0) / days) * 30.4
             else:
                 pr = metrics.get(f'pr{i}', [])
                 pw = metrics.get(f'pw{i}', [])
                 avg_r = sum(dp['value'] for dp in pr) / len(pr) if pr else 0
                 avg_w = sum(dp['value'] for dp in pw) / len(pw) if pw else 0
-                savings = (avg_r * prices.get('rcu_hour', 0) + avg_w * prices.get('wcu_hour', 0)) * 730
+                savings = (avg_r * prices.get(pk['rcu'], 0) + avg_w * prices.get(pk['wcu'], 0)) * 730
 
         total_savings += savings
         entry: Dict[str, Any] = {'indexName': gsi['IndexName'], 'monthlySavings': round(savings, 2)}

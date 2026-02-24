@@ -32,6 +32,10 @@ def analyze(data: Dict[str, Any]) -> Dict[str, Any]:
     cur_rcu = info.get('ProvisionedThroughput', {}).get('ReadCapacityUnits', 0)
     cur_wcu = info.get('ProvisionedThroughput', {}).get('WriteCapacityUnits', 0)
 
+    # Select pricing keys based on table class
+    from config import get_price_keys
+    pk = get_price_keys(info)
+
     # Single batch call for all metrics
     metrics = batch_get_metrics(region, [
         {'id': 'cr', 'table': table_name, 'metric': 'ConsumedReadCapacityUnits', 'period': 300, 'stat': 'Sum'},
@@ -45,13 +49,13 @@ def analyze(data: Dict[str, Any]) -> Dict[str, Any]:
     total_w = sum(dp['value'] for dp in writes)
 
     # On-demand cost
-    period_cost = Decimal(str(total_r)) * Decimal(str(prices['read_request'])) + \
-                  Decimal(str(total_w)) * Decimal(str(prices['write_request']))
+    period_cost = Decimal(str(total_r)) * Decimal(str(prices[pk['read_req']])) + \
+                  Decimal(str(total_w)) * Decimal(str(prices[pk['write_req']]))
     od_cost = (period_cost / Decimal(str(days))) * Decimal('30.4')
 
     # Current provisioned cost
-    cur_prov_cost = (Decimal(str(cur_rcu)) * Decimal('730') * Decimal(str(prices['rcu_hour']))) + \
-                    (Decimal(str(cur_wcu)) * Decimal('730') * Decimal(str(prices['wcu_hour'])))
+    cur_prov_cost = (Decimal(str(cur_rcu)) * Decimal('730') * Decimal(str(prices[pk['rcu']]))) + \
+                    (Decimal(str(cur_wcu)) * Decimal('730') * Decimal(str(prices[pk['wcu']])))
 
     # Autoscaling simulation
     read_ups = [dp['value'] / 300.0 for dp in reads]
@@ -62,8 +66,8 @@ def analyze(data: Dict[str, Any]) -> Dict[str, Any]:
     if sim_r and sim_w:
         avg_sim_rcu = sum(sim_r) / len(sim_r)
         avg_sim_wcu = sum(sim_w) / len(sim_w)
-        optimal_cost = (Decimal(str(avg_sim_rcu)) * Decimal('730') * Decimal(str(prices['rcu_hour']))) + \
-                       (Decimal(str(avg_sim_wcu)) * Decimal('730') * Decimal(str(prices['wcu_hour'])))
+        optimal_cost = (Decimal(str(avg_sim_rcu)) * Decimal('730') * Decimal(str(prices[pk['rcu']]))) + \
+                       (Decimal(str(avg_sim_wcu)) * Decimal('730') * Decimal(str(prices[pk['wcu']])))
     else:
         optimal_cost = cur_prov_cost
 

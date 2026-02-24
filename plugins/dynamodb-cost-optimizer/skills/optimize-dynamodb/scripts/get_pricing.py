@@ -20,8 +20,10 @@ def get_pricing(region: str) -> Dict[str, float]:
             'DDB-ReadUnitsIA': 'ia_read',
         }),
         ('Provisioned IOPS', {
-            'WriteCapacityUnit-Hrs': 'wcu_hour',
-            'ReadCapacityUnit-Hrs': 'rcu_hour',
+            'DDB-WriteUnits': 'wcu_hour',
+            'DDB-ReadUnits': 'rcu_hour',
+            'DDB-WriteUnitsIA': 'ia_wcu_hour',
+            'DDB-ReadUnitsIA': 'ia_rcu_hour',
         }),
         ('Database Storage', {}),
     ]:
@@ -55,7 +57,7 @@ def get_pricing(region: str) -> Dict[str, float]:
 
                         # On-demand / provisioned
                         for key, name in mappings.items():
-                            if (key in group or key in usage) and name not in prices:
+                            if (group == key or usage == key) and name not in prices:
                                 prices[name] = p
 
                         # Storage

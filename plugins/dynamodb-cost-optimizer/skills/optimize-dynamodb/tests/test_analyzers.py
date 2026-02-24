@@ -16,6 +16,8 @@ from autoscaling_sim import simulate
 PRICES = {
     'read_request': 0.00000025, 'write_request': 0.00000125,
     'rcu_hour': 0.00013, 'wcu_hour': 0.00065,
+    'ia_read': 0.00000031, 'ia_write': 0.00000156,
+    'ia_rcu_hour': 0.00016, 'ia_wcu_hour': 0.00081,
     'standard_read': 0.00000025, 'standard_write': 0.00000125,
     'on_demand_read': 0.00000025, 'on_demand_write': 0.00000125,
     'standard_storage': 0.25, 'ia_storage': 0.10,
@@ -126,6 +128,19 @@ class TestCapacityMode(unittest.TestCase):
         self.assertEqual(result['recommendedMode'], 'ON_DEMAND')
         self.assertEqual(result['potentialMonthlySavings'], 0.0)
 
+    @patch('capacity_mode.batch_get_metrics')
+    @patch('capacity_mode.get_client')
+    def test_ia_table_uses_ia_pricing(self, mock_gc, mock_cw):
+        from capacity_mode import analyze
+        mock_gc.return_value.describe_table.return_value = mock_describe_table(
+            table_class='STANDARD_INFREQUENT_ACCESS', rcu=100, wcu=50)
+        mock_cw.return_value = mock_batch_metrics({'cr': [], 'cw': []})
+
+        result = analyze({'region': 'us-east-1', 'tableName': 'test', 'days': 14, 'prices': PRICES})
+        # Provisioned cost should use IA rates: 100*730*0.00016 + 50*730*0.00081 = 41.245
+        expected = 100 * 730 * 0.00016 + 50 * 730 * 0.00081
+        self.assertAlmostEqual(result['currentProvisionedMonthlyCost'], expected, places=2)
+
 
 class TestTableClass(unittest.TestCase):
 
@@ -233,6 +248,24 @@ class TestUtilization(unittest.TestCase):
         result = analyze({'region': 'us-east-1', 'tableName': 'test', 'days': 14, 'prices': PRICES})
         self.assertEqual(len(result['recommendations']), 0)
 
+    @patch('utilization.batch_get_metrics')
+    @patch('utilization.get_client')
+    def test_ia_table_uses_ia_pricing(self, mock_gc, mock_cw):
+        from utilization import analyze
+        mock_gc.return_value.describe_table.return_value = mock_describe_table(
+            rcu=100, wcu=50, table_class='STANDARD_INFREQUENT_ACCESS')
+        mock_cw.return_value = mock_batch_metrics({
+            'r0': [(1.0, i * 5) for i in range(4032)],
+            'w0': [(1.0, i * 5) for i in range(4032)],
+            'rm0': [(0.01, i * 5) for i in range(4032)],
+            'wm0': [(0.01, i * 5) for i in range(4032)],
+        })
+
+        result = analyze({'region': 'us-east-1', 'tableName': 'test', 'days': 14, 'prices': PRICES})
+        rec = result['recommendations'][0]
+        # Should use IA on-demand rates for comparison, not standard
+        self.assertEqual(rec['recommendationType'], 'SWITCH_TO_ON_DEMAND')
+
 
 class TestUnusedGsi(unittest.TestCase):
 
@@ -271,6 +304,21 @@ class TestUnusedGsi(unittest.TestCase):
 
         result = analyze({'region': 'us-east-1', 'tableName': 'test', 'days': 14})
         self.assertFalse(result['hasGSIs'])
+
+    @patch('unused_gsi.batch_get_metrics')
+    @patch('unused_gsi.get_client')
+    def test_ia_table_uses_ia_pricing(self, mock_gc, mock_cw):
+        from unused_gsi import analyze
+        mock_gc.return_value.describe_table.return_value = mock_describe_table(
+            table_class='STANDARD_INFREQUENT_ACCESS',
+            gsis=[{'IndexName': 'gsi-email', 'IndexStatus': 'ACTIVE',
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 10, 'WriteCapacityUnits': 5}}])
+        mock_cw.return_value = mock_batch_metrics({'r0': [], 'pr0': [(10.0, 0)], 'pw0': [(5.0, 0)]})
+
+        result = analyze({'region': 'us-east-1', 'tableName': 'test', 'days': 14, 'prices': PRICES})
+        # Should use IA rates: 10*0.00016*730 + 5*0.00081*730 = 4.125
+        expected = round(10 * 0.00016 * 730 + 5 * 0.00081 * 730, 2)
+        self.assertAlmostEqual(result['unusedGSIs'][0]['monthlySavings'], expected, places=2)
 
 
 class TestOutputFormatting(unittest.TestCase):

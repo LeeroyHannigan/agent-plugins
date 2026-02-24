@@ -141,8 +141,8 @@ class TestGetPricing(unittest.TestCase):
                 make_price_item('DDB-WriteUnits', '', 0.00000125),
             ]},
             {'PriceList': [
-                make_price_item('', 'USE1-ReadCapacityUnit-Hrs', 0.00013),
-                make_price_item('', 'USE1-WriteCapacityUnit-Hrs', 0.00065),
+                make_price_item('DDB-ReadUnits', 'EU-ReadCapacityUnit-Hrs', 0.00013),
+                make_price_item('DDB-WriteUnits', 'EU-WriteCapacityUnit-Hrs', 0.00065),
             ]},
             {'PriceList': [
                 make_price_item('', '', 0.25, vol='Amazon DynamoDB'),
@@ -175,7 +175,7 @@ class TestGetPricing(unittest.TestCase):
         mock_pricing.get_products.side_effect = [
             {'PriceList': [make_item('DDB-ReadUnits', 0.25e-6)], 'NextToken': 'page2'},
             {'PriceList': [make_item('DDB-WriteUnits', 1.25e-6)]},
-            {'PriceList': [make_item('ReadCapacityUnit-Hrs', 0.00013), make_item('WriteCapacityUnit-Hrs', 0.00065)]},
+            {'PriceList': [make_item('DDB-ReadUnits', 0.00013), make_item('DDB-WriteUnits', 0.00065)]},
             {'PriceList': [make_item('', 0.25, vol='Amazon DynamoDB')]},
         ]
 
