@@ -244,6 +244,24 @@ class TestDiscover(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertIn('error', result[0])
 
+    @patch('discover.get_client')
+    def test_deletion_protection_and_pitr(self, mock_gc):
+        from discover import discover
+        mock_ddb = MagicMock()
+        mock_gc.return_value = mock_ddb
+        mock_ddb.describe_table.return_value = {
+            'Table': {'BillingModeSummary': {'BillingMode': 'PROVISIONED'},
+                      'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5},
+                      'DeletionProtectionEnabled': True,
+                      'ItemCount': 10, 'TableSizeBytes': 100}}
+        mock_ddb.describe_continuous_backups.return_value = {
+            'ContinuousBackupsDescription': {
+                'PointInTimeRecoveryDescription': {'PointInTimeRecoveryStatus': 'ENABLED'}}}
+
+        result = discover('us-east-1', ['my-table'])
+        self.assertTrue(result[0]['deletionProtection'])
+        self.assertTrue(result[0]['pointInTimeRecovery'])
+
 
 class TestAnalyzeAllOrchestration(unittest.TestCase):
 
@@ -261,8 +279,8 @@ class TestAnalyzeAllOrchestration(unittest.TestCase):
         }
 
         output = analyze_all({'region': 'us-east-1', 'tables': ['t1'], 'days': 14})
-        self.assertIn('t1', output)
-        self.assertIn('Already optimized', output)
+        self.assertIn('us-east-1', output)
+        self.assertIn('dynamodb-cost-report.md', output)
         mock_at.assert_called_once()
 
     @patch('analyze_all.get_pricing')
@@ -279,8 +297,7 @@ class TestAnalyzeAllOrchestration(unittest.TestCase):
         }
 
         output = analyze_all({'regions': {'us-east-1': ['t1'], 'eu-west-1': ['t2']}, 'days': 7})
-        self.assertIn('t1', output)
-        self.assertIn('t2', output)
+        self.assertIn('Tables: 2', output)
         self.assertEqual(mock_gp.call_count, 2)
 
     @patch('analyze_all.get_pricing')

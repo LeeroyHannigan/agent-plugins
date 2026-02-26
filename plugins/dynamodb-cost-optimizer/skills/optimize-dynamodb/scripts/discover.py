@@ -27,10 +27,19 @@ def discover(region: str, table_names: Optional[List[str]] = None) -> List[Dict[
             billing = t.get('BillingModeSummary', {}).get('BillingMode', 'PROVISIONED')
             if billing == 'PAY_PER_REQUEST':
                 billing = 'ON_DEMAND'
+            pitr = False
+            try:
+                cb = ddb.describe_continuous_backups(TableName=name)
+                pitr = cb.get('ContinuousBackupsDescription', {}).get(
+                    'PointInTimeRecoveryDescription', {}).get('PointInTimeRecoveryStatus') == 'ENABLED'
+            except Exception:
+                pass
             tables.append({
                 'tableName': name,
                 'billingMode': billing,
                 'tableClass': t.get('TableClassSummary', {}).get('TableClass', 'STANDARD'),
+                'deletionProtection': t.get('DeletionProtectionEnabled', False),
+                'pointInTimeRecovery': pitr,
                 'itemCount': t.get('ItemCount', 0),
                 'tableSizeBytes': t.get('TableSizeBytes', 0),
                 'provisionedRead': t.get('ProvisionedThroughput', {}).get('ReadCapacityUnits', 0),

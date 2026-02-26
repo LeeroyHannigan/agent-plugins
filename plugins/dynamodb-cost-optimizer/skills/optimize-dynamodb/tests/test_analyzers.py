@@ -352,6 +352,22 @@ class TestOutputFormatting(unittest.TestCase):
         self.assertIn('Already optimized', output)
         self.assertIn('logs', output)
 
+    def test_format_with_protection_warnings(self):
+        from analyze_all import format_results
+        results = [{
+            'tableName': 'orders', 'region': 'us-east-1', 'errors': [],
+            'deletionProtection': False, 'pointInTimeRecovery': False,
+            'capacityMode': {'potentialMonthlySavings': 0},
+            'tableClass': {'potentialMonthlySavings': 0},
+            'utilization': {'recommendations': []},
+            'unusedGsi': {'unusedGSIs': []},
+        }]
+        output = format_results(14, results)
+        self.assertIn('Deletion Protection', output)
+        self.assertIn('PITR', output)
+        self.assertIn('⚠ enable', output)
+        self.assertIn('┌', output)
+
     def test_format_with_errors(self):
         from analyze_all import format_results
         results = [{

@@ -104,7 +104,7 @@ Analyzes DynamoDB tables for cost optimization opportunities across four dimensi
 ### Prerequisites
 
 - Python 3.9+ with boto3
-- AWS credentials with: `dynamodb:DescribeTable`, `dynamodb:ListTables`, `cloudwatch:GetMetricData`, `pricing:GetProducts`, `ce:GetCostAndUsage`
+- AWS credentials with: `dynamodb:DescribeTable`, `dynamodb:ListTables`, `dynamodb:DescribeContinuousBackups`, `cloudwatch:GetMetricData`, `pricing:GetProducts`, `ce:GetCostAndUsage`
 
 ## Requirements
 

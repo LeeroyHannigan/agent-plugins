@@ -1,8 +1,9 @@
 """Batch analyzer - runs all analyzers for multiple tables in parallel with formatted output.
 
-Usage: echo '{"region":"eu-west-1","tables":["t1","t2"],"days":14,"prices":{...}}' | python analyze_all.py
+Usage: echo '{"region":"eu-west-1"}' | python analyze_all.py                          # all tables
+       echo '{"region":"eu-west-1","tables":["t1","t2"],"days":14}' | python analyze_all.py  # specific tables
 
-Multi-region: echo '{"regions":{"eu-west-1":["t1"],"us-east-1":["t2"]},"days":14,"prices":{...}}' | python analyze_all.py
+Multi-region: echo '{"regions":{"eu-west-1":["t1"],"us-east-1":["t2"]},"days":14}' | python analyze_all.py
 Optional: "concurrency": 10 (default 10)
 """
 import json
@@ -18,12 +19,30 @@ from table_class import analyze as analyze_table_class
 from utilization import analyze as analyze_utilization
 from unused_gsi import analyze as analyze_unused_gsi
 from get_pricing import get_pricing
+from discover import discover
 
 MODE_LABELS = {'ON_DEMAND': 'On-Demand', 'PROVISIONED': 'Provisioned'}
 CLASS_LABELS = {'STANDARD': 'Standard', 'STANDARD_INFREQUENT_ACCESS': 'Standard-IA'}
 
 def analyze_table(region: str, table_name: str, days: int, prices: Dict[str, float]) -> Dict[str, Any]:
     entry = {'tableName': table_name, 'region': region, 'errors': []}
+
+    # Fetch protection status once
+    try:
+        from config import get_client
+        ddb = get_client('dynamodb', region)
+        info = ddb.describe_table(TableName=table_name)['Table']
+        entry['deletionProtection'] = info.get('DeletionProtectionEnabled', False)
+        try:
+            cb = ddb.describe_continuous_backups(TableName=table_name)
+            entry['pointInTimeRecovery'] = cb.get('ContinuousBackupsDescription', {}).get(
+                'PointInTimeRecoveryDescription', {}).get('PointInTimeRecoveryStatus') == 'ENABLED'
+        except Exception:
+            entry['pointInTimeRecovery'] = False
+    except Exception:
+        entry['deletionProtection'] = False
+        entry['pointInTimeRecovery'] = False
+
     for key, fn, inp in [
         ('capacityMode', analyze_capacity, {'region': region, 'tableName': table_name, 'days': days, 'prices': prices}),
         ('tableClass', analyze_table_class, {'region': region, 'tableName': table_name, 'days': days, 'prices': prices}),
@@ -88,6 +107,12 @@ def format_results(days: int, results: List[Dict[str, Any]]) -> str:
                 'savings': g.get('monthlySavings', 0),
             })
 
+        # Check protection status
+        if not t.get('deletionProtection', True):
+            table_recs.append({'type': 'Protection', 'change': 'Enable Deletion Protection', 'savings': 0})
+        if not t.get('pointInTimeRecovery', True):
+            table_recs.append({'type': 'Protection', 'change': 'Enable Point-in-Time Recovery (PITR)', 'savings': 0})
+
         if table_recs:
             s = sum(r['savings'] for r in table_recs)
             total_savings += s
@@ -124,7 +149,7 @@ def format_results(days: int, results: List[Dict[str, Any]]) -> str:
             first = True
             for r in t['recommendations']:
                 tname = t['table'] if first else ''
-                sav = f"${r['savings']:,.2f}/mo" if r['savings'] > 0 else 'cleanup'
+                sav = f"${r['savings']:,.2f}/mo" if r['savings'] > 0 else ('⚠ enable' if r['type'] == 'Protection' else 'cleanup')
                 lines.append(row(tname, f"{r['type']}: {r['change']}", sav))
                 first = False
         lines.append(sep('├', '┼', '┤'))
@@ -149,7 +174,11 @@ def analyze_all(data: Dict[str, Any]) -> str:
     if 'regions' in data:
         region_tables = data['regions']
     else:
-        region_tables = {data['region']: data['tables']}
+        region = data['region']
+        tables = data.get('tables')
+        if not tables:
+            tables = [t['tableName'] for t in discover(region)]
+        region_tables = {region: tables}
 
     days = data.get('days', 14)
     workers = data.get('concurrency', 10)
@@ -173,13 +202,18 @@ def analyze_all(data: Dict[str, Any]) -> str:
         for f in as_completed(futures):
             results[futures[f]] = f.result()
 
-    return format_results(days, results)
+    report = format_results(days, results)
+
+    import os
+    report_path = os.path.join(os.getcwd(), 'dynamodb-cost-report.md')
+    with open(report_path, 'w') as f:
+        f.write(f"# DynamoDB Cost Optimization Report\n\n```\n{report}\n```\n")
+    summary = report.split('\n')[0]
+    return f"{summary}\n\nFull report saved to: {report_path}"
 
 if __name__ == '__main__':
     from config import parse_input, fail
     data = parse_input()
     if 'regions' not in data and 'region' not in data:
         fail("Missing required field: 'region' or 'regions'")
-    if 'regions' not in data and 'tables' not in data:
-        fail("Missing required field: 'tables'")
     print(analyze_all(data))

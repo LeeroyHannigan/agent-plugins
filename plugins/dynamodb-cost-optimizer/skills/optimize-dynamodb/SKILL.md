@@ -3,7 +3,6 @@ name: optimize-dynamodb
 description: "Analyze DynamoDB tables for cost optimization opportunities. Triggers on: optimize DynamoDB, DynamoDB cost analysis, reduce DynamoDB costs, DynamoDB capacity mode, on-demand vs provisioned, table class analysis, unused GSI, DynamoDB utilization, right-size DynamoDB."
 license: Apache-2.0
 dependencies: python>=3.9, boto3
-allowed-tools: Bash(python3 scripts/*) Bash(python scripts/*)
 metadata:
   tags: aws, dynamodb, cost-optimization, capacity, provisioned, on-demand, table-class, utilization, gsi
 ---
@@ -22,7 +21,8 @@ Before running any scripts, detect the Python command:
 3. If neither works, tell the user to install Python 3.
 4. Run `<python> -c "import boto3"`. If it fails, tell the user: `pip install boto3`.
 5. AWS credentials configured with: `dynamodb:DescribeTable`, `dynamodb:ListTables`,
-   `cloudwatch:GetMetricData`, `pricing:GetProducts`, `ce:GetCostAndUsage`
+   `dynamodb:DescribeContinuousBackups`, `cloudwatch:GetMetricData`, `pricing:GetProducts`,
+   `ce:GetCostAndUsage`
 
 ## Workflow
 
@@ -30,27 +30,23 @@ Before running any scripts, detect the Python command:
 
 Ask user for AWS region(s). Default: `us-east-1`. Supports multiple regions.
 
-### Step 2: Discover Tables (only if user didn't specify tables)
+### Step 2: Run Analysis
 
-Skip this step if the user already named specific tables — go straight to Step 3.
-
-```bash
-python scripts/discover.py REGION                    # all tables
-python scripts/discover.py REGION table-1 table-2    # specific tables
-```
-
-Returns `{tables: [...], count: N}`.
-Use the output to sort/filter based on user intent (top 10 by size, etc.).
-DO NOT create helper scripts — work with the JSON output directly.
-
-### Step 3: Run Analysis
-
-Use the batch script to analyze all selected tables in a single invocation.
+Use the batch script to analyze tables. It auto-discovers all tables when `tables` is omitted.
 Pricing is fetched automatically per region — no need to pass it.
 
 Script: `scripts/analyze_all.py`
 
-Single region:
+IMPORTANT: Run the script from the user's current working directory using the absolute path
+to the script. This ensures the report is saved locally.
+
+Example:
+`python3 /path/to/skill/scripts/analyze_all.py '{"region":"REGION","days":14}'`
+
+All tables in a region:
+`{"region":"REGION","days":14}`
+
+Specific tables:
 `{"region":"REGION","tables":["table1","table2"],"days":14}`
 
 Multi-region:
@@ -67,15 +63,17 @@ These require a `prices` object — use `scripts/get_pricing.py REGION` to fetch
 - `scripts/utilization.py` — Input: `{"region":"REGION","tableName":"TABLE","days":14,"prices":PRICING}`
 - `scripts/unused_gsi.py` — Input: `{"region":"REGION","tableName":"TABLE","days":14}`
 
-### Step 4: Present Results
+### Step 3: Present Results
 
-The `analyze_all.py` script outputs a pre-formatted text report.
-Display the EXACT script output to the user inside a code block. Do not summarize,
-rephrase, reformat, or add your own analysis. The script output IS the report.
+The script outputs a summary line and saves the full report to `dynamodb-cost-report.md`
+in the user's current working directory.
+
+DO NOT read or summarize the report file. Simply display the script's output, which
+includes the summary and file path. The user can open the file themselves if needed.
 
 After displaying the output, ask if the user wants CLI commands for any recommendations.
 
-### Step 5: Generate Actions
+### Step 4: Generate Actions
 
 For accepted recommendations:
 
