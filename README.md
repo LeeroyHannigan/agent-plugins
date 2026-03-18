@@ -33,6 +33,7 @@ To maximize the benefits of plugin-assisted development while maintaining securi
 | **migration-to-aws**        | Migrate GCP infrastructure to AWS with resource discovery, architecture mapping, cost analysis, and execution planning | Available |
 | **aws-amplify**             | Build full-stack apps with AWS Amplify Gen 2 using guided workflows for auth, data, storage, and functions             | Available |
 | **aws-serverless**          | Build serverless applications with Lambda, API Gateway, EventBridge, Step Functions, and durable functions             | Available |
+| **dynamodb-cost-optimizer** | Analyze DynamoDB tables for cost optimization: capacity mode, table class, utilization, and unused GSI detection       | Available |
 
 ## Installation
 
@@ -48,6 +49,7 @@ To maximize the benefits of plugin-assisted development while maintaining securi
 
 ```bash
 /plugin install deploy-on-aws@agent-plugins-for-aws
+/plugin install dynamodb-cost-optimizer@agent-plugins-for-aws
 ```
 
 or
@@ -198,6 +200,27 @@ Design, build, deploy, test, and debug serverless applications with AWS Lambda, 
 | Hook                        | Trigger                                       | Action                                        |
 | --------------------------- | --------------------------------------------- | --------------------------------------------- |
 | **SAM template validation** | After edits to `template.yaml`/`template.yml` | Runs `sam validate` and reports errors inline |
+
+## dynamodb-cost-optimizer
+
+Analyzes DynamoDB tables for cost optimization opportunities across four dimensions: capacity mode (on-demand vs provisioned), table class (Standard vs Standard-IA), utilization right-sizing, and unused GSI detection.
+
+### Workflow
+
+1. **Discover** - List and describe DynamoDB tables in target region(s)
+2. **Analyze** - Run all four analyzers in parallel with automatic pricing lookup
+3. **Report** - Present savings recommendations in a formatted table
+
+### Agent Skill Triggers
+
+| Agent Skill           | Triggers                                                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **optimize-dynamodb** | "optimize DynamoDB", "DynamoDB cost analysis", "reduce DynamoDB costs", "on-demand vs provisioned", "table class analysis", "find unused GSIs" |
+
+### Prerequisites
+
+- Python 3.9+ with boto3
+- AWS credentials with: `dynamodb:DescribeTable`, `dynamodb:ListTables`, `dynamodb:DescribeContinuousBackups`, `cloudwatch:GetMetricData`, `pricing:GetProducts`, `ce:GetCostAndUsage`
 
 ## Requirements
 

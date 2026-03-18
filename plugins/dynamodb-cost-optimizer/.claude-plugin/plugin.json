@@ -1,0 +1,22 @@
+{
+  "author": {
+    "name": "Amazon Web Services"
+  },
+  "description": "Analyze DynamoDB tables for cost optimization: capacity mode, table class, utilization, and unused GSI detection.",
+  "homepage": "https://github.com/awslabs/agent-plugins",
+  "keywords": [
+    "aws",
+    "dynamodb",
+    "cost-optimization",
+    "capacity",
+    "provisioned",
+    "on-demand",
+    "table-class",
+    "utilization",
+    "gsi"
+  ],
+  "license": "Apache-2.0",
+  "name": "dynamodb-cost-optimizer",
+  "repository": "https://github.com/awslabs/agent-plugins",
+  "version": "1.0.0"
+}
